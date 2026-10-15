@@ -972,12 +972,26 @@ public class Suite {
     }
 
     private boolean isFeatureIgnored(Feature feature) {
-        for (Tag tag : feature.getTags()) {
-            if (Tag.IGNORE.equals(tag.getName())) {
-                return true;
+        // a :LINE selector on this feature names the scenarios to run explicitly, and
+        // FeatureRuntime.shouldSelect lets it bypass @ignore / @env for those scenarios -
+        // so a feature-level @ignore must not drop the feature before it gets there
+        if (!hasLineFilter(feature)) {
+            for (Tag tag : feature.getTags()) {
+                if (Tag.IGNORE.equals(tag.getName())) {
+                    return true;
+                }
             }
         }
         return allSectionsExcluded(feature);
+    }
+
+    private boolean hasLineFilter(Feature feature) {
+        if (lineFilters.isEmpty()) {
+            return false;
+        }
+        String featureUri = feature.getResource().getUri().toString();
+        Set<Integer> lines = lineFilters.get(featureUri);
+        return lines != null && !lines.isEmpty();
     }
 
     /**
@@ -1011,12 +1025,8 @@ public class Suite {
         if (scenarioName != null) {
             return false;
         }
-        if (!lineFilters.isEmpty()) {
-            String featureUri = feature.getResource().getUri().toString();
-            Set<Integer> lines = lineFilters.get(featureUri);
-            if (lines != null && !lines.isEmpty()) {
-                return false;
-            }
+        if (hasLineFilter(feature)) {
+            return false;
         }
         List<FeatureSection> sections = feature.getSections();
         if (sections == null || sections.isEmpty()) {
